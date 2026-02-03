@@ -56,6 +56,138 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages, onSendMessage, onNewC
     return { mainText, recs };
   };
 
+  // Simple markdown renderer for AI responses
+  const renderMarkdown = (text: string) => {
+    const lines = text.split('\n');
+    
+    return lines.map((line, index) => {
+      // Heading 3 (### )
+      if (line.startsWith('### ')) {
+        return (
+          <h3 key={index} className="text-base font-bold text-slate-800 mt-4 mb-2">
+            {renderInlineMarkdown(line.slice(4))}
+          </h3>
+        );
+      }
+      
+      // Heading 2 (## )
+      if (line.startsWith('## ')) {
+        return (
+          <h2 key={index} className="text-lg font-bold text-slate-900 mt-4 mb-2">
+            {renderInlineMarkdown(line.slice(3))}
+          </h2>
+        );
+      }
+      
+      // Heading 1 (# )
+      if (line.startsWith('# ')) {
+        return (
+          <h1 key={index} className="text-xl font-bold text-slate-900 mt-4 mb-2">
+            {renderInlineMarkdown(line.slice(2))}
+          </h1>
+        );
+      }
+      
+      // Horizontal rule (---)
+      if (line.trim() === '---') {
+        return <hr key={index} className="my-4 border-slate-200" />;
+      }
+      
+      // Unordered list item (* or - )
+      if (line.match(/^\s*[\*\-]\s+/)) {
+        const content = line.replace(/^\s*[\*\-]\s+/, '');
+        const indent = line.match(/^\s*/)?.[0].length || 0;
+        return (
+          <li key={index} className="flex items-start gap-2 my-1" style={{ marginLeft: `${indent * 8}px` }}>
+            <span className="text-indigo-500 mt-1.5">•</span>
+            <span>{renderInlineMarkdown(content)}</span>
+          </li>
+        );
+      }
+      
+      // Numbered list item (1. 2. etc)
+      const numberedMatch = line.match(/^\s*(\d+)\.\s+(.*)$/);
+      if (numberedMatch) {
+        const [, num, content] = numberedMatch;
+        return (
+          <li key={index} className="flex items-start gap-2 my-1">
+            <span className="text-indigo-600 font-semibold min-w-[1.5rem]">{num}.</span>
+            <span>{renderInlineMarkdown(content)}</span>
+          </li>
+        );
+      }
+      
+      // Empty line
+      if (line.trim() === '') {
+        return <br key={index} />;
+      }
+      
+      // Regular paragraph
+      return (
+        <p key={index} className="my-1">
+          {renderInlineMarkdown(line)}
+        </p>
+      );
+    });
+  };
+
+  // Render inline markdown (bold, italic, code)
+  const renderInlineMarkdown = (text: string): React.ReactNode => {
+    // Split by bold (**text**) and italic (*text*)
+    const parts: React.ReactNode[] = [];
+    let remaining = text;
+    let keyIndex = 0;
+    
+    while (remaining.length > 0) {
+      // Check for bold (**text**)
+      const boldMatch = remaining.match(/\*\*(.+?)\*\*/);
+      // Check for inline code (`text`)
+      const codeMatch = remaining.match(/`([^`]+)`/);
+      
+      // Find which comes first
+      const boldIndex = boldMatch ? remaining.indexOf(boldMatch[0]) : -1;
+      const codeIndex = codeMatch ? remaining.indexOf(codeMatch[0]) : -1;
+      
+      let firstMatch: { type: 'bold' | 'code'; match: RegExpMatchArray; index: number } | null = null;
+      
+      if (boldIndex !== -1 && (codeIndex === -1 || boldIndex < codeIndex)) {
+        firstMatch = { type: 'bold', match: boldMatch!, index: boldIndex };
+      } else if (codeIndex !== -1) {
+        firstMatch = { type: 'code', match: codeMatch!, index: codeIndex };
+      }
+      
+      if (firstMatch) {
+        // Add text before the match
+        if (firstMatch.index > 0) {
+          parts.push(remaining.slice(0, firstMatch.index));
+        }
+        
+        // Add the formatted element
+        if (firstMatch.type === 'bold') {
+          parts.push(
+            <strong key={keyIndex++} className="font-semibold text-slate-900">
+              {firstMatch.match[1]}
+            </strong>
+          );
+        } else {
+          parts.push(
+            <code key={keyIndex++} className="px-1.5 py-0.5 bg-slate-100 text-indigo-700 rounded text-xs font-mono">
+              {firstMatch.match[1]}
+            </code>
+          );
+        }
+        
+        remaining = remaining.slice(firstMatch.index + firstMatch.match[0].length);
+      } else {
+        // No more matches, add remaining text
+        parts.push(remaining);
+        break;
+      }
+    }
+    
+    return parts.length > 0 ? parts : text;
+  };
+
   const hints = isAr ? [
     'كيفية تعبئة القسم ب: إحصائيات الطلاب؟',
     'إرشادات رسم خرائط مخرجات التعلم',
@@ -140,8 +272,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages, onSendMessage, onNewC
                         )}
                       </button>
                     )}
-                    <div className="whitespace-pre-wrap text-sm leading-relaxed prose prose-indigo prose-sm max-w-none">
-                      {mainText}
+                    <div className="text-sm leading-relaxed max-w-none">
+                      {msg.sender === Sender.BOT ? renderMarkdown(mainText) : mainText}
                     </div>
                     {msg.attachments && msg.attachments.length > 0 && (
                       <div className="mt-3 flex flex-wrap gap-2">

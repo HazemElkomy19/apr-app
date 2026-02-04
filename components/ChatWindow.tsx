@@ -34,10 +34,29 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages, onSendMessage, onNewC
     }
   };
 
+  const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB limit for Vercel
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const files = Array.from(e.target.files);
-      setSelectedFiles(prev => [...prev, ...files]);
+      const validFiles: File[] = [];
+      const oversizedFiles: string[] = [];
+
+      files.forEach((file: File) => {
+        if (file.size > MAX_FILE_SIZE) {
+          oversizedFiles.push(`${file.name} (${(file.size / 1024 / 1024).toFixed(1)}MB)`);
+        } else {
+          validFiles.push(file);
+        }
+      });
+
+      if (oversizedFiles.length > 0) {
+        alert(`The following files exceed the 4MB limit and were not added:\n${oversizedFiles.join('\n')}`);
+      }
+
+      if (validFiles.length > 0) {
+        setSelectedFiles(prev => [...prev, ...validFiles]);
+      }
     }
   };
 

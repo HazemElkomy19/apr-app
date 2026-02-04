@@ -51,7 +51,11 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages, onSendMessage, onNewC
       });
 
       if (oversizedFiles.length > 0) {
-        alert(`The following files exceed the 4MB limit and were not added:\n${oversizedFiles.join('\n')}`);
+        const maxSizeMB = MAX_FILE_SIZE / 1024 / 1024;
+        const errorMsg = isAr 
+          ? `لا يمكن رفع ملفات أكبر من ${maxSizeMB} ميجابايت:\n${oversizedFiles.join('\n')}`
+          : `Cannot upload files larger than ${maxSizeMB}MB:\n${oversizedFiles.join('\n')}`;
+        alert(errorMsg);
       }
 
       if (validFiles.length > 0) {
